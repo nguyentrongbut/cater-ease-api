@@ -1,4 +1,6 @@
 using cater_ease_api.Data;
+using cater_ease_api.Services;
+DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +11,7 @@ builder.Services.AddEndpointsApiExplorer();
 // Thêm SwaggerGen
 builder.Services.AddSwaggerGen();                   
 builder.Services.AddSingleton<MongoDbService>();
+builder.Services.AddSingleton<CloudinaryService>();
 
 var app = builder.Build();
 
