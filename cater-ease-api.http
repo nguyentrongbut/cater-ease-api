@@ -1,0 +1,6 @@
+@cater_ease_api_HostAddress = http://localhost:4000
+
+GET {{cater_ease_api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

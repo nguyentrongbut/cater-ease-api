@@ -1,0 +1,52 @@
+# Build results
+bin/
+obj/
+out/
+build/
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ASP.NET Core secrets
+secrets.json
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Logs
+*.log
+
+# Database
+*.mdf
+*.ldf
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+
+# Package manager
+packages/
+*.nupkg
+
+# Publish output
+publish/
+wwwroot/dist/
+dist/
+
+# MongoDB dump
+dump/
