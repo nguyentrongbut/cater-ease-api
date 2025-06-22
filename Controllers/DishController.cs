@@ -84,53 +84,39 @@ namespace cater_ease_api.Controllers
         
         // [PATCH] api/dish/:id
         [HttpPatch("{id}")]
-        public async Task<IActionResult> Patch(string id, [FromBody] Dictionary<string, object> updates)
+        public async Task<IActionResult> Patch(string id, [FromBody] UpdateDishDto dto)
         {
-            if (updates == null || updates.Count == 0)
-                return BadRequest("No updates provided.");
-
-            var allowedFields = new HashSet<string>
-            {
-                "Name", "Slug", "Description", "Price", "Image", "SubImage", "CuisineId", "EventId"
-            };
-
             var updateDefs = new List<UpdateDefinition<DishModel>>();
 
-            foreach (var kvp in updates)
+            if (!string.IsNullOrEmpty(dto.Name))
             {
-                var key = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(kvp.Key);
-                if (!allowedFields.Contains(key)) continue;
-
-                object? value = kvp.Value;
-                
-                if (value is JsonElement json)
-                {
-                    value = json.ValueKind switch
-                    {
-                        JsonValueKind.String => json.GetString(),
-                        JsonValueKind.Number when json.TryGetInt32(out var i) => i,
-                        JsonValueKind.Number when json.TryGetDecimal(out var d) => d,
-                        JsonValueKind.True => true,
-                        JsonValueKind.False => false,
-                        JsonValueKind.Array => json.EnumerateArray().Select(e => e.GetString()).Where(x => x != null)
-                            .ToList(),
-                        _ => null
-                    };
-                }
-
-                if (key == "Name" && value is string name)
-                {
-                    updateDefs.Add(Builders<DishModel>.Update.Set("Name", name));
-                    var slug = _slugHelper.GenerateSlug(name);
-                    updateDefs.Add(Builders<DishModel>.Update.Set("Slug", slug));
-                }
-                else if (value != null)
-                {
-                    updateDefs.Add(Builders<DishModel>.Update.Set(key, BsonValue.Create(value)));
-                }
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.Name, dto.Name));
+                var slug = _slugHelper.GenerateSlug(dto.Name);
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.Slug, slug));
             }
 
-            if (updateDefs.Count == 0)
+            if (!string.IsNullOrEmpty(dto.Slug))
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.Slug, dto.Slug));
+
+            if (!string.IsNullOrEmpty(dto.Description))
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.Description, dto.Description));
+
+            if (dto.Price.HasValue)
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.Price, dto.Price.Value));
+
+            if (!string.IsNullOrEmpty(dto.Image))
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.Image, dto.Image));
+
+            if (dto.SubImage != null)
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.SubImage, dto.SubImage));
+
+            if (!string.IsNullOrEmpty(dto.CuisineId))
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.CuisineId, dto.CuisineId));
+
+            if (!string.IsNullOrEmpty(dto.EventId))
+                updateDefs.Add(Builders<DishModel>.Update.Set(d => d.EventId, dto.EventId));
+
+            if (!updateDefs.Any())
                 return BadRequest("No valid fields to update.");
 
             var update = Builders<DishModel>.Update.Combine(updateDefs);

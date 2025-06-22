@@ -1,4 +1,5 @@
 using cater_ease_api.Data;
+using cater_ease_api.Dtos.Auth;
 using cater_ease_api.Models;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
@@ -18,13 +19,22 @@ namespace cater_ease_api.Controllers
 
         // [POST] api/auth/register
         [HttpPost("register")]
-        public async Task<IActionResult> Register(AuthModel user)
+        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            var existing = await _auth.Find(a => a.Email == user.Email).FirstOrDefaultAsync();
+            var existing = await _auth.Find(a => a.Email == dto.Email).FirstOrDefaultAsync();
             if (existing != null) return Conflict("Email already exists");
             
-            user.Status = "active";
-            user.Role = "customer";
+            var user = new AuthModel
+            
+            {
+                Name = dto.Name,
+                Email = dto.Email,
+                Password = dto.Password,
+                Phone = dto.Phone,
+                Address = dto.Address,
+                Status = "active",
+                Role = "customer"
+            };
 
             await _auth.InsertOneAsync(user);
             return Ok(user);
@@ -32,7 +42,7 @@ namespace cater_ease_api.Controllers
 
         // [POST] api/auth/login
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginModel dto)
+        public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             var user = await _auth.Find(a => a.Email == dto.Email && a.Password == dto.Password).FirstOrDefaultAsync();
             
