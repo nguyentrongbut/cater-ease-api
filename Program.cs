@@ -1,5 +1,11 @@
+using System.Text;
 using cater_ease_api.Data;
+using cater_ease_api.Filters;
 using cater_ease_api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+
 DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,9 +15,48 @@ builder.Services.AddControllers();
 // Cần để generate swagger docs
 builder.Services.AddEndpointsApiExplorer();    
 // Thêm SwaggerGen
-builder.Services.AddSwaggerGen();                   
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "Cater Ease API", Version = "v1" });
+
+    // Định nghĩa scheme JWT
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        Description = "Nhập token dạng: Bearer {token}"
+    });
+
+    // Đăng ký filter để chỉ áp dụng cho các route có [Authorize]
+    c.OperationFilter<AuthorizeCheckOperationFilter>();
+});               
 builder.Services.AddSingleton<MongoDbService>();
 builder.Services.AddSingleton<CloudinaryService>();
+builder.Services.AddSingleton<JwtService>();
+
+//jwt
+var jwtKey = Environment.GetEnvironmentVariable("JWT__KEY");
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey ?? throw new Exception("JWT__KEY is missing"));
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opt =>
+    {
+        opt.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+        };
+    });
+
+builder.Services.AddAuthorization(); // Cho phép dùng [Authorize]
+
+
 
 var app = builder.Build();
 
@@ -26,6 +71,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Xác thực JWT
+app.UseAuthentication(); 
+
+// Phân quyền theo [Authorize]
+app.UseAuthorization();   
 // Map controller routes
 app.MapControllers();                                
 

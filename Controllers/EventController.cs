@@ -1,6 +1,7 @@
 using cater_ease_api.Data;
 using cater_ease_api.Dtos.Event;
 using cater_ease_api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -26,6 +27,7 @@ namespace cater_ease_api.Controllers
         }
 
         // [GET] api/event/:id
+        [Authorize(Roles = "admin")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
@@ -34,6 +36,7 @@ namespace cater_ease_api.Controllers
         }
         
         // [POST] api/event
+        [Authorize(Roles = "admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateEventDto dto)
         {
@@ -50,6 +53,7 @@ namespace cater_ease_api.Controllers
         }
 
         // [PATCH] api/event/:id
+        [Authorize(Roles = "admin")]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(string id, [FromBody] UpdateEventDto dto)
         {
@@ -73,6 +77,7 @@ namespace cater_ease_api.Controllers
         }
         
         // [DELETE] api/event/:id
+        [Authorize(Roles = "admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {

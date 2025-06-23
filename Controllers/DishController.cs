@@ -4,6 +4,7 @@ using cater_ease_api.Data;
 using cater_ease_api.Models;
 using cater_ease_api.Dtos.Dish;
 using cater_ease_api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -33,6 +34,7 @@ namespace cater_ease_api.Controllers
         }
 
         // [POST] api/dish
+        [Authorize(Roles = "admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromForm] CreateDishDto form)
         {
@@ -146,6 +148,7 @@ namespace cater_ease_api.Controllers
 
         
         // [PATCH] api/dish/:id
+        [Authorize(Roles = "admin")]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(string id, [FromBody] UpdateDishDto dto)
         {
@@ -189,6 +192,7 @@ namespace cater_ease_api.Controllers
         }
 
         // [DELETE] api/dish/:id
+        [Authorize(Roles = "admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {

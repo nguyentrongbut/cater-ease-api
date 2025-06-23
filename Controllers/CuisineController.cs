@@ -1,6 +1,7 @@
 using cater_ease_api.Data;
 using cater_ease_api.Dtos.Cuisine;
 using cater_ease_api.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -16,7 +17,8 @@ namespace cater_ease_api.Controllers
         {
             _cuisines = mongoDbService.Database.GetCollection<CuisineModel>("cuisines");
         }
-// [GET] api/cuisine
+        
+        // [GET] api/cuisine
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -25,6 +27,7 @@ namespace cater_ease_api.Controllers
         }
 
         // [GET] api/cuisine/:id
+        [Authorize(Roles = "admin")]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
@@ -33,6 +36,7 @@ namespace cater_ease_api.Controllers
         }
         
         // [POST] api/cuisine
+        [Authorize(Roles = "admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateCuisineDto dto)
         {
@@ -49,6 +53,7 @@ namespace cater_ease_api.Controllers
         }
 
         // [PATCH] api/cuisine/:id
+        [Authorize(Roles = "admin")]
         [HttpPatch("{id}")]
         public async Task<IActionResult> Patch(string id, [FromBody] UpdateCuisineDto dto)
         {
@@ -72,6 +77,7 @@ namespace cater_ease_api.Controllers
         }
         
         // [DELETE] api/cuisine/:id
+        [Authorize(Roles = "admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
