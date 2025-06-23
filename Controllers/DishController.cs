@@ -17,10 +17,12 @@ namespace cater_ease_api.Controllers
     {
         private readonly IMongoCollection<DishModel> _dishes;
         private readonly CloudinaryService _cloudinary;
+        private readonly IMongoCollection<CategoryModel> _categories;
 
         public DishController(MongoDbService mongoDbService, CloudinaryService cloudinary)
         {
             _dishes = mongoDbService.Database.GetCollection<DishModel>("dishes");
+            _categories = mongoDbService.Database.GetCollection<CategoryModel>("categories");
             _cloudinary = cloudinary;
         }
 
@@ -53,7 +55,25 @@ namespace cater_ease_api.Controllers
         public async Task<IActionResult> GetAll()
         {
             var dishes = await _dishes.Find(_ => true).ToListAsync();
-            return Ok(dishes);
+
+            var categoryIds = dishes.Select(d => d.CategoryId).Distinct().ToList();
+            var categories = await _categories.Find(c => categoryIds.Contains(c.Id)).ToListAsync();
+
+            var result = dishes.Select(dish =>
+            {
+                var categoryName = categories.FirstOrDefault(c => c.Id == dish.CategoryId)?.Name ?? "Unknown";
+                return new DishDetailDto
+                {
+                    Id = dish.Id,
+                    Name = dish.Name,
+                    Description = dish.Description,
+                    Price = dish.Price,
+                    Image = dish.Image,
+                    CategoryName = categoryName
+                };
+            }).ToList();
+
+            return Ok(result);
         }
 
         // [GET] api/dish/:id
@@ -62,7 +82,21 @@ namespace cater_ease_api.Controllers
         {
             var dish = await _dishes.Find(d => d.Id == id).FirstOrDefaultAsync();
             if (dish == null) return NotFound();
-            return Ok(dish);
+
+            var category = await _categories.Find(c => c.Id == dish.CategoryId).FirstOrDefaultAsync();
+            var categoryName = category?.Name ?? "Unknown";
+
+            var result = new DishDetailDto
+            {
+                Id = dish.Id,
+                Name = dish.Name,
+                Description = dish.Description,
+                Price = dish.Price,
+                Image = dish.Image,
+                CategoryName = categoryName
+            };
+
+            return Ok(result);
         }
 
         // [PATCH] api/dish/:id
