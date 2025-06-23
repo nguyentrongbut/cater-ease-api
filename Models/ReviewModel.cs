@@ -12,7 +12,7 @@ public class ReviewModel
 
     [Required]
     [BsonRepresentation(BsonType.ObjectId)]
-    public string DishId { get; set; } = null!;
+    public string MenuId { get; set; } = null!;
 
     [Required]
     [BsonRepresentation(BsonType.ObjectId)]
