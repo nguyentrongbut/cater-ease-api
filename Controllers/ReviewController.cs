@@ -1,7 +1,6 @@
 using cater_ease_api.Data;
 using cater_ease_api.Dtos.Review;
 using cater_ease_api.Models;
-
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 
@@ -17,7 +16,23 @@ namespace cater_ease_api.Controllers
         {
             _reviews = mongoDbService.Database.GetCollection<ReviewModel>("reviews");
         }
-        
+
+        // [GET] api/review
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var reviews = await _reviews.Find(_ => true).ToListAsync();
+            return Ok(reviews);
+        }
+
+        // [GET] api/review/{id}
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(string id)
+        {
+            var review = await _reviews.Find(r => r.Id == id).FirstOrDefaultAsync();
+            return review == null ? NotFound() : Ok(review);
+        }
+
         // [POST] api/review
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateReviewDto dto)
@@ -81,18 +96,6 @@ namespace cater_ease_api.Controllers
         {
             var reviews = await _reviews.Find(r => r.AuthId == authId).ToListAsync();
             return Ok(reviews);
-        }
-
-        // [GET] api/review/dish/{dishId}/average-rating
-        [HttpGet("dish/{dishId}/average-rating")]
-        public async Task<IActionResult> GetAverageRating(string dishId)
-        {
-            var reviews = await _reviews.Find(r => r.DishId == dishId).ToListAsync();
-            if (reviews.Count == 0)
-                return Ok(new { average = 0, count = 0 });
-
-            var average = reviews.Average(r => r.Rating);
-            return Ok(new { average = Math.Round(average, 1), count = reviews.Count });
         }
     }
 }
