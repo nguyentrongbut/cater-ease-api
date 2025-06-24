@@ -23,4 +23,7 @@ public class MenuModel
 
     [Range(0.01, double.MaxValue, ErrorMessage = "Price must be positive")]
     public decimal Price { get; set; }
+    
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string? EventId { get; set; }
 }
