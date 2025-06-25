@@ -23,6 +23,10 @@ namespace cater_ease_api.Controllers
         public async Task<IActionResult> Create([FromBody] CreateOrderDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
+            
+            var subTotal = dto.Items.Sum(i => i.Price * i.Quantity);
+            
+            var total = subTotal * dto.TableNumber;
 
             var order = new OrderModel
             {
@@ -31,16 +35,19 @@ namespace cater_ease_api.Controllers
                 Phone = dto.Phone,
                 Email = dto.Email,
                 Note = dto.Note,
+                Address = dto.Address,
                 Items = dto.Items.Select(i => new OrderItem
                 {
-                    DishId = i.DishId,
+                    Id = i.Id,
                     Name = i.Name,
                     Image = i.Image,
                     Quantity = i.Quantity,
                     Price = i.Price
                 }).ToList(),
-                SubTotal = dto.SubTotal,
-                Total = dto.Total,
+                TableNumber = dto.TableNumber,
+                EventDate = dto.EventDate,
+                SubTotal = subTotal,    
+                Total = total,
                 CreatedAt = DateTime.UtcNow,
                 Status = "pending"
             };

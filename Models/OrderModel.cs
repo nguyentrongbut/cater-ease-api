@@ -14,8 +14,11 @@ public class OrderModel
 
     public string Name { get; set; } = null!;
     public string Phone { get; set; } = null!;
+    public string Address { get; set; }
     public string Email { get; set; } = null!;
     public string? Note { get; set; }
+    public int TableNumber { get; set; }
+    public DateTime EventDate { get; set; }
 
     public List<OrderItem> Items { get; set; } = new();
     public decimal SubTotal { get; set; }
@@ -27,8 +30,9 @@ public class OrderModel
 
 public class OrderItem
 {
+    [BsonElement("DishId")]
     [BsonRepresentation(BsonType.ObjectId)]
-    public string DishId { get; set; } = null!;
+    public string Id { get; set; } = null!;
     public string Name { get; set; } = null!;
     public string? Image { get; set; }
     public int Quantity { get; set; }

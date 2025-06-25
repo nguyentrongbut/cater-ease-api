@@ -4,7 +4,8 @@ public class UpdateMenuDto
 {
     public string? Name { get; set; }
     public string? Description { get; set; }
+    public List<string>? AddDishIds { get; set; }   
+    public List<string>? RemoveDishIds { get; set; } 
     public List<string>? DishIds { get; set; }
-    public string? Image { get; set; } 
-    public decimal? Price { get; set; }
+    public IFormFile? Image { get; set; } 
 }

@@ -13,4 +13,5 @@ public class CreateMenuDto
     public List<string> DishIds { get; set; } = new();
     public IFormFile? Image { get; set; }
     public string? EventId { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

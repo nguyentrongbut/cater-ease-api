@@ -10,8 +10,8 @@ public class MenuDetailDto
     public List<DishDetailDto> Dishes { get; set; } = new();
     public string? Image { get; set; }
     public decimal Price { get; set; }
-    
     public double AverageRating { get; set; }
     public int TotalReviews { get; set; }
-
+    public string Slug { get; set; } = null!;
+    public DateTime CreatedAt { get; set; }
 }

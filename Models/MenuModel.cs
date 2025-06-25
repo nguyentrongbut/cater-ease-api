@@ -20,10 +20,9 @@ public class MenuModel
     public List<string> DishIds { get; set; } = new();
 
     public string? Image { get; set; }
-
-    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be positive")]
-    public decimal Price { get; set; }
     
     [BsonRepresentation(BsonType.ObjectId)]
     public string? EventId { get; set; }
+    public string Slug { get; set; } = null!;
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
