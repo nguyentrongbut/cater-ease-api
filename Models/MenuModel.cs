@@ -12,17 +12,7 @@ public class MenuModel
 
     [Required(ErrorMessage = "Name is required")]
     public string Name { get; set; } = null!;
-
-    public string? Description { get; set; }
-
-    // List of Dish Ids
-    [BsonRepresentation(BsonType.ObjectId)]
-    public List<string> DishIds { get; set; } = new();
-
-    public string? Image { get; set; }
     
     [BsonRepresentation(BsonType.ObjectId)]
-    public string? EventId { get; set; }
-    public string Slug { get; set; } = null!;
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public List<string> DishIds { get; set; } = new();
 }

@@ -12,16 +12,4 @@ public class DishModel
 
     [Required(ErrorMessage = "Name is required")]
     public string Name { get; set; } = null!;
-    
-    public string? Description { get; set; }
-
-    [Required(ErrorMessage = "CategoryId is required")]
-    [BsonRepresentation(BsonType.ObjectId)]
-    public string CategoryId { get; set; }
-
-    [Required(ErrorMessage = "Price is required")]
-    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be positive")]
-    public decimal Price { get; set; }
-
-    public string? Image { get; set; }
 }

@@ -5,7 +5,7 @@ namespace cater_ease_api.Dtos.Review;
 public class CreateReviewDto
 {
     [Required]
-    public string MenuId { get; set; } = null!;
+    public string EventId { get; set; } = null!;
 
     [Required]
     public string AuthId { get; set; } = null!;
@@ -14,6 +14,6 @@ public class CreateReviewDto
     [Range(1, 5)]
     public int Rating { get; set; }
 
-    [StringLength(500)]
+    [MaxLength(500)]
     public string? Comment { get; set; }
 }

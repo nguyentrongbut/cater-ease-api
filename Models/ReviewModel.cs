@@ -12,14 +12,14 @@ public class ReviewModel
 
     [Required]
     [BsonRepresentation(BsonType.ObjectId)]
-    public string MenuId { get; set; } = null!;
+    public string EventId { get; set; } = null!;
 
     [Required]
     [BsonRepresentation(BsonType.ObjectId)]
     public string AuthId { get; set; } = null!;
 
     [Required]
-    [Range(1, 5)]
+    [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5")]
     public int Rating { get; set; }
 
     [StringLength(500)]
