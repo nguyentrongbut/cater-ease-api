@@ -26,16 +26,53 @@ public class VenueController : ControllerBase
     }
 
     [HttpGet]
+    [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var venues = await _venues.Find(_ => true).ToListAsync();
-        return Ok(venues);
+        // Chỉ lấy venue chưa bị xoá
+        var venues = await _venues.Find(v => !v.Deleted).ToListAsync();
+
+        var allRoomIds = venues.SelectMany(v => v.RoomIds).Distinct().ToList();
+        var allRooms = await _rooms.Find(r => allRoomIds.Contains(r.Id)).ToListAsync();
+
+        var result = venues.Select(venue => new
+        {
+            venue.Id,
+            venue.Name,
+            venue.Slug,
+            venue.Description,
+            venue.Area,
+            venue.People,
+            venue.Address,
+            venue.Open,
+            venue.Close,
+            venue.Days,
+            venue.HeroBanners,
+            venue.ThumbnailImages,
+            venue.GalleryImages,
+            venue.Image,
+            Rooms = allRooms
+                .Where(r => venue.RoomIds.Contains(r.Id))
+                .Select(r => new
+                {
+                    r.Id,
+                    r.Name,
+                    r.Image,
+                    r.Area,
+                    r.People,
+                    r.Table
+                })
+                .ToList()
+        });
+
+        return Ok(result);
     }
+
 
     [HttpGet("{slug}")]
     public async Task<IActionResult> GetBySlug(string slug)
     {
-        var venue = await _venues.Find(v => v.Slug == slug).FirstOrDefaultAsync();
+        var venue = await _venues.Find(v => v.Slug == slug && !v.Deleted).FirstOrDefaultAsync();
         if (venue == null) return NotFound("Venue not found");
 
         var rooms = await _rooms.Find(r => venue.RoomIds.Contains(r.Id)).ToListAsync();
@@ -47,9 +84,7 @@ public class VenueController : ControllerBase
             venue.Slug,
             venue.Description,
             venue.Area,
-            venue.Price,
             venue.People,
-            venue.Table,
             venue.Address,
             venue.Open,
             venue.Close,
@@ -57,7 +92,9 @@ public class VenueController : ControllerBase
             venue.HeroBanners,
             venue.ThumbnailImages,
             venue.GalleryImages,
-            Rooms = rooms.Select(r => new {
+            venue.Image,
+            Rooms = rooms.Select(r => new
+            {
                 r.Id,
                 r.Name,
                 r.Image,
@@ -67,7 +104,6 @@ public class VenueController : ControllerBase
             })
         });
     }
-
 
     [Authorize(Roles = "admin")]
     [HttpPost]
@@ -85,6 +121,7 @@ public class VenueController : ControllerBase
         var heroBanners = await UploadImages(dto.HeroBanners);
         var thumbnails = await UploadImages(dto.ThumbnailImages);
         var gallery = await UploadImages(dto.GalleryImages);
+        var imageUrl = dto.Image != null ? await _cloudinary.UploadAsync(dto.Image) : null;
 
         var venue = new VenueModel
         {
@@ -92,9 +129,7 @@ public class VenueController : ControllerBase
             Slug = slug,
             Description = dto.Description,
             Area = dto.Area,
-            Price = dto.Price,
             People = dto.People,
-            Table = dto.Table,
             RoomIds = dto.RoomIds ?? new List<string>(),
             HeroBanners = heroBanners,
             ThumbnailImages = thumbnails,
@@ -102,7 +137,9 @@ public class VenueController : ControllerBase
             Address = dto.Address,
             Open = dto.Open,
             Close = dto.Close,
-            Days = dto.Days ?? new List<string>()
+            Days = dto.Days ?? new List<string>(),
+            Image = imageUrl ?? "",
+            Deleted = false
         };
 
         await _venues.InsertOneAsync(venue);
@@ -128,14 +165,8 @@ public class VenueController : ControllerBase
         if (!string.IsNullOrEmpty(dto.Area))
             updates.Add(Builders<VenueModel>.Update.Set(v => v.Area, dto.Area));
 
-        if (dto.Price.HasValue)
-            updates.Add(Builders<VenueModel>.Update.Set(v => v.Price, dto.Price.Value));
-
         if (dto.People.HasValue)
             updates.Add(Builders<VenueModel>.Update.Set(v => v.People, dto.People.Value));
-
-        if (dto.Table.HasValue)
-            updates.Add(Builders<VenueModel>.Update.Set(v => v.Table, dto.Table.Value));
 
         if (!string.IsNullOrEmpty(dto.Description))
             updates.Add(Builders<VenueModel>.Update.Set(v => v.Description, dto.Description));
@@ -170,6 +201,7 @@ public class VenueController : ControllerBase
             {
                 await _cloudinary.DeleteAsync(url);
             }
+
             venue.HeroBanners = venue.HeroBanners.Except(dto.RemoveHeroBanners).ToList();
         }
 
@@ -179,6 +211,7 @@ public class VenueController : ControllerBase
             {
                 await _cloudinary.DeleteAsync(url);
             }
+
             venue.ThumbnailImages = venue.ThumbnailImages.Except(dto.RemoveThumbnailImages).ToList();
         }
 
@@ -188,6 +221,7 @@ public class VenueController : ControllerBase
             {
                 await _cloudinary.DeleteAsync(url);
             }
+
             venue.GalleryImages = venue.GalleryImages.Except(dto.RemoveGalleryImages).ToList();
         }
 
@@ -209,6 +243,15 @@ public class VenueController : ControllerBase
             venue.GalleryImages.AddRange(added);
         }
 
+        if (dto.Image != null)
+        {
+            if (!string.IsNullOrEmpty(venue.Image))
+                await _cloudinary.DeleteAsync(venue.Image);
+
+            var imageUrl = await _cloudinary.UploadAsync(dto.Image);
+            updates.Add(Builders<VenueModel>.Update.Set(v => v.Image, imageUrl));
+        }
+
         updates.Add(Builders<VenueModel>.Update.Set(v => v.HeroBanners, venue.HeroBanners.Distinct().ToList()));
         updates.Add(Builders<VenueModel>.Update.Set(v => v.ThumbnailImages, venue.ThumbnailImages.Distinct().ToList()));
         updates.Add(Builders<VenueModel>.Update.Set(v => v.GalleryImages, venue.GalleryImages.Distinct().ToList()));
@@ -227,14 +270,29 @@ public class VenueController : ControllerBase
         var venue = await _venues.Find(v => v.Id == id).FirstOrDefaultAsync();
         if (venue == null) return NotFound("Venue not found");
 
-        foreach (var url in venue.HeroBanners.Concat(venue.ThumbnailImages).Concat(venue.GalleryImages).Distinct())
+        // Xoá ảnh khỏi cloudinary (tuỳ chọn, bạn có thể giữ lại nếu cần phục hồi)
+        var allImageUrls = new List<string>();
+        if (!string.IsNullOrEmpty(venue.Image)) allImageUrls.Add(venue.Image);
+        allImageUrls.AddRange(venue.HeroBanners);
+        allImageUrls.AddRange(venue.ThumbnailImages);
+        allImageUrls.AddRange(venue.GalleryImages);
+
+        foreach (var url in allImageUrls.Distinct())
         {
             await _cloudinary.DeleteAsync(url);
         }
 
-        var result = await _venues.DeleteOneAsync(v => v.Id == id);
-        return result.DeletedCount == 0 ? NotFound("Delete failed") : Ok("Venue deleted successfully.");
+        // Cập nhật trạng thái deleted = true
+        var result = await _venues.UpdateOneAsync(
+            v => v.Id == id,
+            Builders<VenueModel>.Update.Set(v => v.Deleted, true)
+        );
+
+        return result.ModifiedCount > 0
+            ? Ok("Venue marked as deleted.")
+            : NotFound("Delete failed.");
     }
+
 
     private async Task<List<string>> UploadImages(List<IFormFile>? files)
     {

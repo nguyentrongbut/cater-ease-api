@@ -26,4 +26,6 @@ public class ReviewModel
     public string? Comment { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public bool Deleted { get; set; } = false;
 }

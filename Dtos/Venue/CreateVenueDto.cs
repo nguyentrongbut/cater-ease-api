@@ -19,10 +19,6 @@ public class CreateVenueDto
     [Range(1, int.MaxValue, ErrorMessage = "People must be greater than 0")]
     public int People { get; set; }
 
-    [Required(ErrorMessage = "Table is required")]
-    [Range(1, int.MaxValue, ErrorMessage = "Table must be greater than 0")]
-    public int Table { get; set; }
-
     public string? Description { get; set; }
 
     public List<string>? RoomIds { get; set; }
@@ -44,4 +40,5 @@ public class CreateVenueDto
 
     [Required(ErrorMessage = "Days are required")]
     public List<string> Days { get; set; } = new();
+    public IFormFile? Image { get; set; }
 }

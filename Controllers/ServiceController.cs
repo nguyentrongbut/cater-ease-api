@@ -24,16 +24,15 @@ public class ServiceController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var services = await _services.Find(_ => true).ToListAsync();
+        var services = await _services.Find(s => !s.Deleted).ToListAsync();
         return Ok(services);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var service = await _services.Find(s => s.Id == id).FirstOrDefaultAsync();
-        if (service == null) return NotFound("Service not found");
-        return Ok(service);
+        var service = await _services.Find(s => s.Id == id && !s.Deleted).FirstOrDefaultAsync();
+        return service == null ? NotFound("Service not found") : Ok(service);
     }
 
     [Authorize(Roles = "admin")]
@@ -49,7 +48,9 @@ public class ServiceController : ControllerBase
             Name = dto.Name,
             Price = dto.Price,
             Description = dto.Description,
-            Images = images
+            Icon = dto.Icon,
+            Images = images,
+            Deleted = false
         };
 
         await _services.InsertOneAsync(service);
@@ -60,7 +61,7 @@ public class ServiceController : ControllerBase
     [HttpPatch("{id}")]
     public async Task<IActionResult> Update(string id, [FromForm] UpdateServiceDto dto)
     {
-        var service = await _services.Find(s => s.Id == id).FirstOrDefaultAsync();
+        var service = await _services.Find(s => s.Id == id && !s.Deleted).FirstOrDefaultAsync();
         if (service == null) return NotFound("Service not found");
 
         var updates = new List<UpdateDefinition<ServiceModel>>();
@@ -73,6 +74,9 @@ public class ServiceController : ControllerBase
 
         if (!string.IsNullOrEmpty(dto.Description))
             updates.Add(Builders<ServiceModel>.Update.Set(s => s.Description, dto.Description));
+
+        if (!string.IsNullOrEmpty(dto.Icon))
+            updates.Add(Builders<ServiceModel>.Update.Set(s => s.Icon, dto.Icon));
 
         if (dto.RemoveImages != null && dto.RemoveImages.Any())
         {
@@ -93,7 +97,6 @@ public class ServiceController : ControllerBase
         if (!updates.Any()) return BadRequest("No data to update.");
 
         var result = await _services.UpdateOneAsync(s => s.Id == id, Builders<ServiceModel>.Update.Combine(updates));
-
         return result.ModifiedCount > 0 ? Ok("Service updated.") : Ok("No changes made.");
     }
 
@@ -101,14 +104,16 @@ public class ServiceController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var service = await _services.Find(s => s.Id == id).FirstOrDefaultAsync();
+        var service = await _services.Find(s => s.Id == id && !s.Deleted).FirstOrDefaultAsync();
         if (service == null) return NotFound("Service not found");
 
-        foreach (var img in service.Images.Distinct())
-            await _cloudinary.DeleteAsync(img);
+        // Soft delete
+        var result = await _services.UpdateOneAsync(
+            s => s.Id == id,
+            Builders<ServiceModel>.Update.Set(s => s.Deleted, true)
+        );
 
-        var result = await _services.DeleteOneAsync(s => s.Id == id);
-        return result.DeletedCount == 0 ? NotFound("Delete failed") : Ok("Service deleted.");
+        return result.ModifiedCount == 0 ? NotFound("Delete failed") : Ok("Service soft deleted.");
     }
 
     private async Task<List<string>> UploadImages(List<IFormFile>? files)

@@ -15,4 +15,10 @@ public class MenuModel
     
     [BsonRepresentation(BsonType.ObjectId)]
     public List<string> DishIds { get; set; } = new();
+
+    [Required(ErrorMessage = "Price is required")]
+    public decimal Price { get; set; }
+
+    [BsonDefaultValue(false)]
+    public bool Deleted { get; set; } = false;
 }

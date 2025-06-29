@@ -22,7 +22,7 @@ public class ReviewController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var reviews = await _reviews.Find(_ => true).ToListAsync();
+        var reviews = await _reviews.Find(r => !r.Deleted).ToListAsync();
         var userIds = reviews.Select(r => r.AuthId).Distinct().ToList();
         var users = await _auth.Find(u => userIds.Contains(u.Id)).ToListAsync();
 
@@ -46,7 +46,7 @@ public class ReviewController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var review = await _reviews.Find(r => r.Id == id).FirstOrDefaultAsync();
+        var review = await _reviews.Find(r => r.Id == id && !r.Deleted).FirstOrDefaultAsync();
         if (review == null) return NotFound();
 
         var user = await _auth.Find(u => u.Id == review.AuthId).FirstOrDefaultAsync();
@@ -66,7 +66,7 @@ public class ReviewController : ControllerBase
     [HttpGet("event/{eventId}")]
     public async Task<IActionResult> GetByEvent(string eventId)
     {
-        var reviews = await _reviews.Find(r => r.EventId == eventId).ToListAsync();
+        var reviews = await _reviews.Find(r => r.EventId == eventId && !r.Deleted).ToListAsync();
         var userIds = reviews.Select(r => r.AuthId).Distinct().ToList();
         var users = await _auth.Find(u => userIds.Contains(u.Id)).ToListAsync();
 
@@ -90,7 +90,7 @@ public class ReviewController : ControllerBase
     [HttpGet("user/{userId}")]
     public async Task<IActionResult> GetByUser(string userId)
     {
-        var reviews = await _reviews.Find(r => r.AuthId == userId).ToListAsync();
+        var reviews = await _reviews.Find(r => r.AuthId == userId && !r.Deleted).ToListAsync();
         var user = await _auth.Find(u => u.Id == userId).FirstOrDefaultAsync();
         var userName = user?.Name ?? "Unknown";
 
@@ -113,7 +113,7 @@ public class ReviewController : ControllerBase
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
         var existing = await _reviews
-            .Find(r => r.AuthId == dto.AuthId && r.EventId == dto.EventId)
+            .Find(r => r.AuthId == dto.AuthId && r.EventId == dto.EventId && !r.Deleted)
             .FirstOrDefaultAsync();
 
         if (existing != null)
@@ -125,7 +125,8 @@ public class ReviewController : ControllerBase
             EventId = dto.EventId,
             Comment = dto.Comment,
             Rating = dto.Rating,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Deleted = false
         };
 
         await _reviews.InsertOneAsync(review);
@@ -135,6 +136,9 @@ public class ReviewController : ControllerBase
     [HttpPatch("{id}")]
     public async Task<IActionResult> Patch(string id, [FromBody] UpdateReviewDto dto)
     {
+        var review = await _reviews.Find(r => r.Id == id && !r.Deleted).FirstOrDefaultAsync();
+        if (review == null) return NotFound();
+
         var updateDefs = new List<UpdateDefinition<ReviewModel>>();
 
         if (dto.Rating.HasValue)
@@ -157,7 +161,8 @@ public class ReviewController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var result = await _reviews.DeleteOneAsync(r => r.Id == id);
-        return result.DeletedCount == 0 ? NotFound() : Ok("Deleted");
+        var update = Builders<ReviewModel>.Update.Set(r => r.Deleted, true);
+        var result = await _reviews.UpdateOneAsync(r => r.Id == id, update);
+        return result.ModifiedCount == 0 ? NotFound() : Ok("Deleted");
     }
 }

@@ -12,4 +12,5 @@ public class DishModel
 
     [Required(ErrorMessage = "Name is required")]
     public string Name { get; set; } = null!;
+    public bool Deleted { get; set; } = false;
 }

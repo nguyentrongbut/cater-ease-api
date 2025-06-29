@@ -19,20 +19,12 @@ public class VenueModel
     public string? Description { get; set; }
 
     [Required(ErrorMessage = "Area is required")]
-    public string Area { get; set; } = null!; 
-
-    [Required(ErrorMessage = "Price is required")]
-    [Range(0, double.MaxValue, ErrorMessage = "Price must be non-negative")]
-    public double Price { get; set; }
+    public string Area { get; set; } = null!;
 
     [Required(ErrorMessage = "People is required")]
     [Range(1, int.MaxValue, ErrorMessage = "People must be greater than 0")]
-    public int People { get; set; } 
+    public int People { get; set; }
 
-    [Required(ErrorMessage = "Table is required")]
-    [Range(0, int.MaxValue, ErrorMessage = "Table must be non-negative")]
-    public int Table { get; set; } 
-    
     [BsonRepresentation(BsonType.ObjectId)]
     public List<string> RoomIds { get; set; } = new();
 
@@ -51,4 +43,9 @@ public class VenueModel
 
     [Required(ErrorMessage = "Days are required")]
     public List<string> Days { get; set; } = new();
+
+    [Required(ErrorMessage = "Image is required")]
+    public string Image { get; set; } = null!;
+    
+    public bool Deleted { get; set; } = false;
 }

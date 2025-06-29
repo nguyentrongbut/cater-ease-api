@@ -15,7 +15,7 @@ namespace cater_ease_api.Controllers
         private readonly CloudinaryService _cloudinary;
         private readonly JwtService _jwtService;
         
-        public AuthController(MongoDbService mongoDbService,  CloudinaryService cloudinary, JwtService jwtService)
+        public AuthController(MongoDbService mongoDbService, CloudinaryService cloudinary, JwtService jwtService)
         {
             _auth = mongoDbService.Database?.GetCollection<AuthModel>("auth");
             _cloudinary = cloudinary;
@@ -26,11 +26,10 @@ namespace cater_ease_api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            var existing = await _auth.Find(a => a.Email == dto.Email).FirstOrDefaultAsync();
+            var existing = await _auth.Find(a => a.Email == dto.Email && !a.Deleted).FirstOrDefaultAsync();
             if (existing != null) return Conflict("Email already exists");
             
             var user = new AuthModel
-            
             {
                 Name = dto.Name,
                 Email = dto.Email,
@@ -38,7 +37,8 @@ namespace cater_ease_api.Controllers
                 Phone = dto.Phone,
                 Address = dto.Address,
                 Status = "active",
-                Role = "customer"
+                Role = "customer",
+                Deleted = false
             };
 
             await _auth.InsertOneAsync(user);
@@ -49,7 +49,7 @@ namespace cater_ease_api.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var user = await _auth.Find(a => a.Email == dto.Email).FirstOrDefaultAsync();
+            var user = await _auth.Find(a => a.Email == dto.Email && !a.Deleted).FirstOrDefaultAsync();
             
             if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.Password))
                 return Unauthorized("Invalid credentials");
@@ -74,7 +74,7 @@ namespace cater_ease_api.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            var user = await _auth.Find(a => a.Id == id).FirstOrDefaultAsync();
+            var user = await _auth.Find(a => a.Id == id && !a.Deleted).FirstOrDefaultAsync();
             return user == null ? NotFound() : Ok(user);
         }
         
@@ -82,7 +82,7 @@ namespace cater_ease_api.Controllers
         [HttpPatch("{id}")]
         public async Task<IActionResult> UpdateProfile(string id, [FromForm] UpdateProfileDto dto)
         {
-            var user = await _auth.Find(u => u.Id == id).FirstOrDefaultAsync();
+            var user = await _auth.Find(u => u.Id == id && !u.Deleted).FirstOrDefaultAsync();
             if (user == null) return NotFound("User not found.");
 
             var updateDefs = new List<UpdateDefinition<AuthModel>>();
@@ -117,6 +117,18 @@ namespace cater_ease_api.Controllers
             var result = await _auth.UpdateOneAsync(u => u.Id == id, update);
 
             return result.ModifiedCount == 0 ? NotFound() : Ok("Profile updated successfully.");
+        }
+
+        // [DELETE] api/auth/:id
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> SoftDelete(string id)
+        {
+            var result = await _auth.UpdateOneAsync(
+                u => u.Id == id && !u.Deleted,
+                Builders<AuthModel>.Update.Set(u => u.Deleted, true)
+            );
+
+            return result.ModifiedCount == 0 ? NotFound("User not found or already deleted") : Ok("User deleted (soft)");
         }
     }
 }

@@ -24,11 +24,13 @@ public class EventModel
 
     [BsonRepresentation(BsonType.ObjectId)]
     public List<string> MenuIds { get; set; } = new();
-    
+
     [BsonRepresentation(BsonType.ObjectId)]
     public List<string> ServiceIds { get; set; } = new();
-    
+
     public List<string> Images { get; set; } = new();
 
     public bool Hot { get; set; } = false;
+
+    public bool Deleted { get; set; } = false;
 }

@@ -25,7 +25,7 @@ public class RoomController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var rooms = await _rooms.Find(_ => true).ToListAsync();
+        var rooms = await _rooms.Find(r => !r.Deleted).ToListAsync();
         return Ok(rooms);
     }
 
@@ -33,8 +33,8 @@ public class RoomController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var room = await _rooms.Find(r => r.Id == id).FirstOrDefaultAsync();
-        return room == null ? NotFound() : Ok(room);
+        var room = await _rooms.Find(r => r.Id == id && !r.Deleted).FirstOrDefaultAsync();
+        return room == null ? NotFound("Room not found") : Ok(room);
     }
 
     // [POST] api/room
@@ -44,7 +44,7 @@ public class RoomController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        string imageUrl = await _cloudinary.UploadAsync(dto.Image);
+        var imageUrl = await _cloudinary.UploadAsync(dto.Image);
 
         var model = new RoomModel
         {
@@ -52,7 +52,9 @@ public class RoomController : ControllerBase
             Area = dto.Area,
             People = dto.People,
             Table = dto.Table,
-            Image = imageUrl
+            Price = dto.Price,
+            Image = imageUrl,
+            Deleted = false
         };
 
         await _rooms.InsertOneAsync(model);
@@ -64,7 +66,7 @@ public class RoomController : ControllerBase
     [HttpPatch("{id}")]
     public async Task<IActionResult> Update(string id, [FromForm] UpdateRoomDto dto)
     {
-        var room = await _rooms.Find(r => r.Id == id).FirstOrDefaultAsync();
+        var room = await _rooms.Find(r => r.Id == id && !r.Deleted).FirstOrDefaultAsync();
         if (room == null) return NotFound("Room not found");
 
         var updates = new List<UpdateDefinition<RoomModel>>();
@@ -81,9 +83,14 @@ public class RoomController : ControllerBase
         if (dto.Table.HasValue)
             updates.Add(Builders<RoomModel>.Update.Set(r => r.Table, dto.Table.Value));
 
+        if (dto.Price.HasValue)
+            updates.Add(Builders<RoomModel>.Update.Set(r => r.Price, dto.Price.Value));
+
         if (dto.Image != null)
         {
-            await _cloudinary.DeleteAsync(room.Image);
+            if (!string.IsNullOrEmpty(room.Image))
+                await _cloudinary.DeleteAsync(room.Image);
+
             var imageUrl = await _cloudinary.UploadAsync(dto.Image);
             updates.Add(Builders<RoomModel>.Update.Set(r => r.Image, imageUrl));
         }
@@ -99,13 +106,12 @@ public class RoomController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var room = await _rooms.Find(r => r.Id == id).FirstOrDefaultAsync();
-        if (room == null) return NotFound();
+        var room = await _rooms.Find(r => r.Id == id && !r.Deleted).FirstOrDefaultAsync();
+        if (room == null) return NotFound("Room not found");
 
-        if (!string.IsNullOrEmpty(room.Image))
-            await _cloudinary.DeleteAsync(room.Image);
+        var update = Builders<RoomModel>.Update.Set(r => r.Deleted, true);
+        var result = await _rooms.UpdateOneAsync(r => r.Id == id, update);
 
-        var result = await _rooms.DeleteOneAsync(r => r.Id == id);
-        return result.DeletedCount == 0 ? NotFound() : Ok("Room deleted successfully");
+        return result.ModifiedCount == 0 ? NotFound("Delete failed") : Ok("Room deleted (soft delete) successfully");
     }
 }

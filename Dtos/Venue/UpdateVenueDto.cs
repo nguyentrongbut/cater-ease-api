@@ -17,9 +17,6 @@ public class UpdateVenueDto
     [Range(1, int.MaxValue, ErrorMessage = "People must be greater than 0")]
     public int? People { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Table must be greater than 0")]
-    public int? Table { get; set; }
-
     public string? Address { get; set; }
 
     public string? Open { get; set; }
@@ -41,4 +38,5 @@ public class UpdateVenueDto
     // Phòng
     public List<string>? AddRoomIds { get; set; }
     public List<string>? RemoveRoomIds { get; set; }
+    public IFormFile? Image { get; set; }
 }

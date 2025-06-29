@@ -28,4 +28,6 @@ public class AuthModel
 
     public string? Address { get; set; }
     public string Status { get; set; } = "active";
+    
+    public bool Deleted { get; set; } = false;
 }

@@ -26,4 +26,11 @@ public class RoomModel
 
     [Required(ErrorMessage = "Image is required")]
     public string Image { get; set; } = null!;
+
+    [Required(ErrorMessage = "Price is required")]
+    [Range(0, double.MaxValue, ErrorMessage = "Price must be non-negative")]
+    public double Price { get; set; }
+
+    [BsonDefaultValue(false)]
+    public bool Deleted { get; set; } = false;
 }

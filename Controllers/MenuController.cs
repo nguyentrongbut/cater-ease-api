@@ -1,4 +1,5 @@
 using cater_ease_api.Data;
+using cater_ease_api.Dtos.Dish;
 using cater_ease_api.Dtos.Menu;
 using cater_ease_api.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -12,26 +13,65 @@ namespace cater_ease_api.Controllers;
 public class MenuController : ControllerBase
 {
     private readonly IMongoCollection<MenuModel> _menus;
+    private readonly IMongoCollection<DishModel> _dishes;
 
     public MenuController(MongoDbService mongoDbService)
     {
         _menus = mongoDbService.Database.GetCollection<MenuModel>("menus");
+        _dishes = mongoDbService.Database.GetCollection<DishModel>("dishes");
     }
 
     // [GET] api/menu
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var menus = await _menus.Find(_ => true).ToListAsync();
-        return Ok(menus);
+        var menus = await _menus.Find(m => !m.Deleted).ToListAsync();
+        var result = new List<MenuWithDishesDto>();
+
+        foreach (var menu in menus)
+        {
+            var dishes = await _dishes.Find(d => menu.DishIds.Contains(d.Id) && !d.Deleted).ToListAsync();
+            var dishDtos = dishes.Select(d => new DishDetailDto
+            {
+                Id = d.Id,
+                Name = d.Name
+            }).ToList();
+
+            result.Add(new MenuWithDishesDto
+            {
+                Id = menu.Id,
+                Name = menu.Name,
+                Price = menu.Price,
+                Dishes = dishDtos
+            });
+        }
+
+        return Ok(result);
     }
 
     // [GET] api/menu/{id}
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var menu = await _menus.Find(m => m.Id == id).FirstOrDefaultAsync();
-        return menu == null ? NotFound() : Ok(menu);
+        var menu = await _menus.Find(m => m.Id == id && !m.Deleted).FirstOrDefaultAsync();
+        if (menu == null) return NotFound();
+
+        var dishes = await _dishes.Find(d => menu.DishIds.Contains(d.Id) && !d.Deleted).ToListAsync();
+        var dishDtos = dishes.Select(d => new DishDetailDto
+        {
+            Id = d.Id,
+            Name = d.Name
+        }).ToList();
+
+        var dto = new MenuWithDishesDto
+        {
+            Id = menu.Id,
+            Name = menu.Name,
+            Price = menu.Price,
+            Dishes = dishDtos
+        };
+
+        return Ok(dto);
     }
 
     // [POST] api/menu
@@ -44,7 +84,9 @@ public class MenuController : ControllerBase
         var menu = new MenuModel
         {
             Name = dto.Name,
-            DishIds = dto.DishIds
+            DishIds = dto.DishIds ?? new(),
+            Price = dto.Price,
+            Deleted = false
         };
 
         await _menus.InsertOneAsync(menu);
@@ -56,37 +98,38 @@ public class MenuController : ControllerBase
     [HttpPatch("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateMenuDto dto)
     {
-        var updateDefs = new List<UpdateDefinition<MenuModel>>();
+        var menu = await _menus.Find(m => m.Id == id && !m.Deleted).FirstOrDefaultAsync();
+        if (menu == null) return NotFound("Menu not found");
+
+        var updates = new List<UpdateDefinition<MenuModel>>();
+        bool hasChanges = false;
 
         if (!string.IsNullOrEmpty(dto.Name))
-            updateDefs.Add(Builders<MenuModel>.Update.Set(m => m.Name, dto.Name));
-
-        if (dto.AddDishIds != null && dto.AddDishIds.Any())
         {
-            var menu = await _menus.Find(m => m.Id == id).FirstOrDefaultAsync();
-            if (menu == null) return NotFound();
-
-            var updatedDishIds = menu.DishIds.Union(dto.AddDishIds).Distinct().ToList();
-            updateDefs.Add(Builders<MenuModel>.Update.Set(m => m.DishIds, updatedDishIds));
+            updates.Add(Builders<MenuModel>.Update.Set(m => m.Name, dto.Name));
+            hasChanges = true;
         }
 
-        if (dto.RemoveDishIds != null && dto.RemoveDishIds.Any())
+        if (dto.DishIds != null)
         {
-            var menu = await _menus.Find(m => m.Id == id).FirstOrDefaultAsync();
-            if (menu == null) return NotFound();
-
-            var updatedDishIds = menu.DishIds.Except(dto.RemoveDishIds).ToList();
-            updateDefs.Add(Builders<MenuModel>.Update.Set(m => m.DishIds, updatedDishIds));
+            updates.Add(Builders<MenuModel>.Update.Set(m => m.DishIds, dto.DishIds));
+            hasChanges = true;
         }
 
-        if (!updateDefs.Any()) return BadRequest("No valid fields to update.");
+        if (dto.Price.HasValue)
+        {
+            updates.Add(Builders<MenuModel>.Update.Set(m => m.Price, dto.Price.Value));
+            hasChanges = true;
+        }
 
-        var update = Builders<MenuModel>.Update.Combine(updateDefs);
-        var result = await _menus.UpdateOneAsync(m => m.Id == id, update);
+        if (!hasChanges) return BadRequest("No changes provided");
 
-        return result.MatchedCount == 0
-            ? NotFound("Update failed")
-            : Ok("Updated menu successfully.");
+        var result = await _menus.UpdateOneAsync(
+            m => m.Id == id,
+            Builders<MenuModel>.Update.Combine(updates)
+        );
+
+        return result.ModifiedCount > 0 ? Ok("Updated") : Ok("No changes made");
     }
 
     // [DELETE] api/menu/{id}
@@ -94,9 +137,10 @@ public class MenuController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var result = await _menus.DeleteOneAsync(m => m.Id == id);
-        return result.DeletedCount == 0
-            ? NotFound()
+        var update = Builders<MenuModel>.Update.Set(m => m.Deleted, true);
+        var result = await _menus.UpdateOneAsync(m => m.Id == id && !m.Deleted, update);
+        return result.ModifiedCount == 0
+            ? NotFound("Menu not found or already deleted.")
             : Ok("Deleted menu successfully.");
     }
 }

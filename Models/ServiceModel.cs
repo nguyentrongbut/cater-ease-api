@@ -20,4 +20,8 @@ public class ServiceModel
     public string? Description { get; set; }
 
     public List<string> Images { get; set; } = new();
+
+    public string? Icon { get; set; } 
+
+    public bool Deleted { get; set; } = false; 
 }

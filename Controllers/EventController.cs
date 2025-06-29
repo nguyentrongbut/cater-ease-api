@@ -1,7 +1,7 @@
 using cater_ease_api.Data;
+using cater_ease_api.Dtos.Dish;
 using cater_ease_api.Dtos.Event;
 using cater_ease_api.Dtos.Menu;
-using cater_ease_api.Dtos.Dish;
 using cater_ease_api.Models;
 using cater_ease_api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +18,7 @@ public class EventController : ControllerBase
     private readonly IMongoCollection<EventModel> _events;
     private readonly IMongoCollection<MenuModel> _menus;
     private readonly IMongoCollection<DishModel> _dishes;
+    private readonly IMongoCollection<ServiceModel> _services;
     private readonly CloudinaryService _cloudinary;
     private readonly SlugHelper _slugHelper = new();
 
@@ -26,39 +27,44 @@ public class EventController : ControllerBase
         _events = mongoDbService.Database.GetCollection<EventModel>("events");
         _menus = mongoDbService.Database.GetCollection<MenuModel>("menus");
         _dishes = mongoDbService.Database.GetCollection<DishModel>("dishes");
+        _services = mongoDbService.Database.GetCollection<ServiceModel>("services");
         _cloudinary = cloudinary;
     }
 
     [HttpGet]
-    [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var events = await _events.Find(_ => true).ToListAsync();
+        var events = await _events.Find(e => !e.Deleted).ToListAsync();
         var allMenuIds = events.SelectMany(e => e.MenuIds).Distinct().ToList();
-        var menus = await _menus.Find(m => allMenuIds.Contains(m.Id)).ToListAsync();
+        var menus = await _menus.Find(m => allMenuIds.Contains(m.Id) && !m.Deleted).ToListAsync();
         var dishIds = menus.SelectMany(m => m.DishIds).Distinct().ToList();
-        var dishes = await _dishes.Find(d => dishIds.Contains(d.Id)).ToListAsync();
+        var dishes = await _dishes.Find(d => dishIds.Contains(d.Id) && !d.Deleted).ToListAsync();
+        var allServiceIds = events.SelectMany(e => e.ServiceIds).Distinct().ToList();
+        var allServices = await _services.Find(s => allServiceIds.Contains(s.Id) && !s.Deleted).ToListAsync();
 
         var result = events.Select(ev =>
         {
-            var eventMenus = menus.Where(m => ev.MenuIds.Contains(m.Id)).ToList();
-
-            var menuDtos = eventMenus.Select(menu =>
-            {
-                var menuDishes = dishes.Where(d => menu.DishIds.Contains(d.Id)).ToList();
-                var dishDtos = menuDishes.Select(d => new DishDetailDto
+            var menuDtos = menus
+                .Where(m => ev.MenuIds.Contains(m.Id))
+                .Select(menu =>
                 {
-                    Id = d.Id,
-                    Name = d.Name,
+                    var dishDtos = dishes
+                        .Where(d => menu.DishIds.Contains(d.Id))
+                        .Select(d => new DishDetailDto { Id = d.Id, Name = d.Name })
+                        .ToList();
+
+                    return new MenuDetailDto
+                    {
+                        Id = menu.Id,
+                        Name = menu.Name,
+                        Price = menu.Price,
+                        Dishes = dishDtos
+                    };
                 }).ToList();
 
-                return new MenuDetailDto
-                {
-                    Id = menu.Id,
-                    Name = menu.Name,
-                    Dishes = dishDtos,
-                };
-            }).ToList();
+            var serviceDtos = allServices
+                .Where(s => ev.ServiceIds.Contains(s.Id))
+                .ToList();
 
             return new
             {
@@ -70,53 +76,57 @@ public class EventController : ControllerBase
                 ev.Icon,
                 ev.Images,
                 ev.Hot,
-                Menus = menuDtos
+                Menus = menuDtos,
+                Services = serviceDtos
             };
         });
 
         return Ok(result);
     }
 
-
-    [Authorize(Roles = "admin")]
-    [HttpGet("by-id/{id}")]
-    public async Task<IActionResult> GetById(string id)
+    [HttpGet("{slug}")]
+    public async Task<IActionResult> GetBySlug(string slug)
     {
-        var ev = await _events.Find(e => e.Id == id).FirstOrDefaultAsync();
-        if (ev == null) return NotFound();
+        var ev = await _events.Find(e => e.Slug == slug && !e.Deleted).FirstOrDefaultAsync();
+        if (ev == null) return NotFound("Event not found");
 
-        var menus = await _menus.Find(m => ev.MenuIds.Contains(m.Id)).ToListAsync();
+        var menus = await _menus.Find(m => ev.MenuIds.Contains(m.Id) && !m.Deleted).ToListAsync();
         var dishIds = menus.SelectMany(m => m.DishIds).Distinct().ToList();
-        var dishes = await _dishes.Find(d => dishIds.Contains(d.Id)).ToListAsync();
+        var dishes = await _dishes.Find(d => dishIds.Contains(d.Id) && !d.Deleted).ToListAsync();
+        var services = await _services.Find(s => ev.ServiceIds.Contains(s.Id) && !s.Deleted).ToListAsync();
+        
 
-        var resultMenus = menus.Select(menu =>
+        var menuDtos = menus.Select(menu =>
         {
-            var dishList = dishes.Where(d => menu.DishIds.Contains(d.Id)).ToList();
-            var dishDtos = dishList.Select(d => new DishDetailDto
-            {
-                Id = d.Id,
-                Name = d.Name,
-            }).ToList();
+            var dishDtos = dishes
+                .Where(d => menu.DishIds.Contains(d.Id))
+                .Select(d => new DishDetailDto { Id = d.Id, Name = d.Name })
+                .ToList();
 
             return new MenuDetailDto
             {
                 Id = menu.Id,
                 Name = menu.Name,
-                Dishes = dishDtos,
+                Price = menu.Price,
+                Dishes = dishDtos
             };
         }).ToList();
 
         return Ok(new
         {
-            ev.Id,
-            ev.Name,
-            ev.SubName,
-            ev.Slug,
-            ev.Description,
-            ev.Icon,
-            ev.Images,
-            ev.Hot,
-            Menus = resultMenus
+            eventInfo = new
+            {
+                ev.Id,
+                ev.Name,
+                ev.SubName,
+                ev.Slug,
+                ev.Description,
+                ev.Icon,
+                ev.Images,
+                ev.Hot
+            },
+            Menus = menuDtos,
+            Services = services
         });
     }
 
@@ -143,7 +153,7 @@ public class EventController : ControllerBase
             }
         }
 
-        var model = new EventModel
+        var newEvent = new EventModel
         {
             Name = dto.Name,
             SubName = dto.SubName,
@@ -153,28 +163,28 @@ public class EventController : ControllerBase
             MenuIds = dto.MenuIds ?? new List<string>(),
             ServiceIds = dto.ServiceIds ?? new List<string>(),
             Images = images,
-            Hot = dto.Hot
+            Hot = dto.Hot,
+            Deleted = false
         };
 
-        await _events.InsertOneAsync(model);
-        return Ok(model);
+        await _events.InsertOneAsync(newEvent);
+        return Ok(newEvent);
     }
 
     [Authorize(Roles = "admin")]
     [HttpPatch("{id}")]
     public async Task<IActionResult> Patch(string id, [FromForm] UpdateEventDto dto)
     {
-        var eventObj = await _events.Find(e => e.Id == id).FirstOrDefaultAsync();
-        if (eventObj == null) return NotFound("Event not found");
+        var ev = await _events.Find(e => e.Id == id).FirstOrDefaultAsync();
+        if (ev == null) return NotFound("Event not found");
 
         var updates = new List<UpdateDefinition<EventModel>>();
-        bool hasChanges = false;
+        var hasChanges = false;
 
-        // Cập nhật tên & slug
         if (!string.IsNullOrEmpty(dto.Name))
         {
-            updates.Add(Builders<EventModel>.Update.Set(e => e.Name, dto.Name));
             var slug = _slugHelper.GenerateSlug(dto.Name);
+            updates.Add(Builders<EventModel>.Update.Set(e => e.Name, dto.Name));
             updates.Add(Builders<EventModel>.Update.Set(e => e.Slug, slug));
             hasChanges = true;
         }
@@ -197,28 +207,24 @@ public class EventController : ControllerBase
             hasChanges = true;
         }
 
-        // Xử lý ảnh
-        var currentImages = eventObj.Images ?? new List<string>();
-
-        if (dto.RemoveImages != null && dto.RemoveImages.Any())
+        var currentImages = ev.Images.ToList();
+        if (dto.RemoveImages != null)
         {
             foreach (var url in dto.RemoveImages)
             {
-                await _cloudinary.DeleteAsync(url); // Không cần gán kết quả nếu phương thức không trả giá trị
+                await _cloudinary.DeleteAsync(url);
             }
-
             currentImages = currentImages.Except(dto.RemoveImages).ToList();
             hasChanges = true;
         }
 
-        if (dto.AddImages != null && dto.AddImages.Any())
+        if (dto.AddImages != null)
         {
             foreach (var file in dto.AddImages)
             {
-                var uploadedUrl = await _cloudinary.UploadAsync(file);
-                currentImages.Add(uploadedUrl);
+                var uploaded = await _cloudinary.UploadAsync(file);
+                currentImages.Add(uploaded);
             }
-
             hasChanges = true;
         }
 
@@ -233,143 +239,53 @@ public class EventController : ControllerBase
             hasChanges = true;
         }
 
-        // Xử lý MenuIds
-        var updatedMenus = eventObj.MenuIds.ToList();
-
-        if (dto.AddMenuIds != null && dto.AddMenuIds.Any())
+        var menuIds = ev.MenuIds.ToList();
+        if (dto.AddMenuIds != null)
         {
-            var added = dto.AddMenuIds.Except(updatedMenus).ToList();
-            if (added.Any())
-            {
-                updatedMenus.AddRange(added);
-                hasChanges = true;
-            }
+            menuIds.AddRange(dto.AddMenuIds.Except(menuIds));
+            hasChanges = true;
         }
-
-        if (dto.RemoveMenuIds != null && dto.RemoveMenuIds.Any())
+        if (dto.RemoveMenuIds != null)
         {
-            var removed = updatedMenus.Intersect(dto.RemoveMenuIds).ToList();
-            if (removed.Any())
-            {
-                updatedMenus = updatedMenus.Except(removed).ToList();
-                hasChanges = true;
-            }
+            menuIds = menuIds.Except(dto.RemoveMenuIds).ToList();
+            hasChanges = true;
         }
+        updates.Add(Builders<EventModel>.Update.Set(e => e.MenuIds, menuIds.Distinct().ToList()));
 
-        if (hasChanges)
+        var serviceIds = ev.ServiceIds.ToList();
+        if (dto.AddServiceIds != null)
         {
-            updates.Add(Builders<EventModel>.Update.Set(e => e.MenuIds, updatedMenus.Distinct().ToList()));
+            serviceIds.AddRange(dto.AddServiceIds.Except(serviceIds));
+            hasChanges = true;
         }
-
-        if (!hasChanges)
+        if (dto.RemoveServiceIds != null)
         {
-            return BadRequest("No valid fields provided or no data changed.");
+            serviceIds = serviceIds.Except(dto.RemoveServiceIds).ToList();
+            hasChanges = true;
         }
+        updates.Add(Builders<EventModel>.Update.Set(e => e.ServiceIds, serviceIds.Distinct().ToList()));
 
-        // Xử lý ServiceIds
-        var updatedServices = eventObj.ServiceIds.ToList();
+        if (!hasChanges) return BadRequest("No changes detected.");
 
-        if (dto.AddServiceIds != null && dto.AddServiceIds.Any())
-        {
-            var added = dto.AddServiceIds.Except(updatedServices).ToList();
-            if (added.Any())
-            {
-                updatedServices.AddRange(added);
-                hasChanges = true;
-            }
-        }
-
-        if (dto.RemoveServiceIds != null && dto.RemoveServiceIds.Any())
-        {
-            var removed = updatedServices.Intersect(dto.RemoveServiceIds).ToList();
-            if (removed.Any())
-            {
-                updatedServices = updatedServices.Except(removed).ToList();
-                hasChanges = true;
-            }
-        }
-
-        if (hasChanges)
-        {
-            updates.Add(Builders<EventModel>.Update.Set(e => e.ServiceIds, updatedServices.Distinct().ToList()));
-        }
-
-
-        var update = Builders<EventModel>.Update.Combine(updates);
-        var result = await _events.UpdateOneAsync(e => e.Id == id, update);
-
-        return result.ModifiedCount == 0
-            ? Ok("No actual changes were made to the event.")
-            : Ok("Event updated successfully.");
+        var result = await _events.UpdateOneAsync(e => e.Id == id, Builders<EventModel>.Update.Combine(updates));
+        return result.ModifiedCount > 0 ? Ok("Event updated.") : Ok("No changes made.");
     }
-
 
     [Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        // Lấy event từ DB trước
-        var eventObj = await _events.Find(e => e.Id == id).FirstOrDefaultAsync();
-        if (eventObj == null)
-            return NotFound("Event not found");
+        var ev = await _events.Find(e => e.Id == id).FirstOrDefaultAsync();
+        if (ev == null) return NotFound("Event not found");
 
-        // Nếu có ảnh, tiến hành xóa trên Cloudinary
-        if (eventObj.Images != null && eventObj.Images.Any())
+        foreach (var img in ev.Images)
         {
-            foreach (var imageUrl in eventObj.Images)
-            {
-                await _cloudinary.DeleteAsync(imageUrl);
-            }
+            await _cloudinary.DeleteAsync(img);
         }
 
-        // Xóa khỏi DB
-        var result = await _events.DeleteOneAsync(e => e.Id == id);
-        return result.DeletedCount == 0
-            ? NotFound("Delete failed")
-            : Ok("Deleted event and related images successfully.");
-    }
+        var update = Builders<EventModel>.Update.Set(e => e.Deleted, true);
+        var result = await _events.UpdateOneAsync(e => e.Id == id, update);
 
-    [HttpGet("{slug}")]
-    public async Task<IActionResult> GetBySlug(string slug)
-    {
-        var eventObj = await _events.Find(e => e.Slug == slug).FirstOrDefaultAsync();
-        if (eventObj == null) return NotFound("Event not found");
-
-        var menuList = await _menus.Find(m => eventObj.MenuIds.Contains(m.Id)).ToListAsync();
-        var allDishIds = menuList.SelectMany(m => m.DishIds).Distinct().ToList();
-        var allDishes = await _dishes.Find(d => allDishIds.Contains(d.Id)).ToListAsync();
-
-        var resultMenus = menuList.Select(menu =>
-        {
-            var dishes = allDishes.Where(d => menu.DishIds.Contains(d.Id)).ToList();
-            var dishDtos = dishes.Select(d => new DishDetailDto
-            {
-                Id = d.Id,
-                Name = d.Name,
-            }).ToList();
-
-            return new MenuDetailDto
-            {
-                Id = menu.Id,
-                Name = menu.Name,
-                Dishes = dishDtos,
-            };
-        }).ToList();
-
-        return Ok(new
-        {
-            eventInfo = new
-            {
-                eventObj.Id,
-                eventObj.Name,
-                eventObj.SubName,
-                eventObj.Slug,
-                eventObj.Description,
-                eventObj.Icon,
-                eventObj.Images,
-                eventObj.Hot
-            },
-            menus = resultMenus
-        });
+        return result.ModifiedCount > 0 ? Ok("Deleted successfully.") : NotFound("Delete failed.");
     }
 }
