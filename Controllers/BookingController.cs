@@ -23,7 +23,7 @@ public class BookingController : ControllerBase
     private readonly EmailService _emailService;
 
 
-    public BookingController(MongoDbService mongoDbService ,EmailService emailService)
+    public BookingController(MongoDbService mongoDbService, EmailService emailService)
     {
         _bookings = mongoDbService.Database.GetCollection<BookingModel>("bookings");
         _menus = mongoDbService.Database.GetCollection<MenuModel>("menus");
@@ -399,7 +399,7 @@ public class BookingController : ControllerBase
         await _bookings.InsertOneAsync(newBooking);
         return Ok(newBooking);
     }
-    
+
     [Authorize(Roles = "admin")]
     [HttpPatch("status/{id}")]
     public async Task<IActionResult> UpdateStatus(string id, [FromBody] UpdateBookingStatusDto dto)
@@ -457,4 +457,6 @@ public class BookingController : ControllerBase
         var result = await _bookings.DeleteOneAsync(b => b.Id == id);
         return result.DeletedCount > 0 ? Ok("Booking deleted") : NotFound("Booking not found");
     }
+    
+    
 }

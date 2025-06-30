@@ -3,6 +3,7 @@ using System.Text;
 using cater_ease_api.Data;
 using cater_ease_api.Dtos.Service;
 using cater_ease_api.Filters;
+using cater_ease_api.Models;
 using cater_ease_api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -35,10 +36,17 @@ builder.Services.AddSwaggerGen(c =>
     // Đăng ký filter để chỉ áp dụng cho các route có [Authorize]
     c.OperationFilter<AuthorizeCheckOperationFilter>();
 });               
+
+// connect momo api
+builder.Services.Configure<MomoOptionModel>(builder.Configuration.GetSection("MomoAPI"));
+builder.Services.AddScoped<IMomoService, MomoService>();
+
 builder.Services.AddSingleton<MongoDbService>();
 builder.Services.AddSingleton<CloudinaryService>();
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddScoped<EmailService>();
+
+
 
 //jwt
 var jwtKey = Environment.GetEnvironmentVariable("JWT__KEY");
