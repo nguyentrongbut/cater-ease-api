@@ -11,10 +11,6 @@ public class CreateVenueDto
     [Required(ErrorMessage = "Area is required")]
     public string Area { get; set; } = null!;
 
-    [Required(ErrorMessage = "Price is required")]
-    [Range(0, double.MaxValue, ErrorMessage = "Price must be non-negative")]
-    public double Price { get; set; }
-
     [Required(ErrorMessage = "People is required")]
     [Range(1, int.MaxValue, ErrorMessage = "People must be greater than 0")]
     public int People { get; set; }

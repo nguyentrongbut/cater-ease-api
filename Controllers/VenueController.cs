@@ -60,7 +60,8 @@ public class VenueController : ControllerBase
                     r.Image,
                     r.Area,
                     r.People,
-                    r.Table
+                    r.Table,
+                    r.Price
                 })
                 .ToList()
         });
@@ -100,7 +101,8 @@ public class VenueController : ControllerBase
                 r.Image,
                 r.Area,
                 r.People,
-                r.Table
+                r.Table,
+                r.Price
             })
         });
     }

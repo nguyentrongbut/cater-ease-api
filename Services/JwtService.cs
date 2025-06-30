@@ -24,7 +24,7 @@ public class JwtService
             Subject = new ClaimsIdentity(new[]
             {
                 new Claim("userId", userId),
-                new Claim("role", role)
+                new Claim(ClaimTypes.Role, role)
             }),
             Expires = DateTime.UtcNow.AddDays(7),
             SigningCredentials = new SigningCredentials(

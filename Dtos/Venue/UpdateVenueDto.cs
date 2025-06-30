@@ -11,9 +11,6 @@ public class UpdateVenueDto
 
     public string? Area { get; set; }
 
-    [Range(0, double.MaxValue, ErrorMessage = "Price must be non-negative")]
-    public double? Price { get; set; }
-
     [Range(1, int.MaxValue, ErrorMessage = "People must be greater than 0")]
     public int? People { get; set; }
 

@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using System.Text;
 using cater_ease_api.Data;
+using cater_ease_api.Dtos.Service;
 using cater_ease_api.Filters;
 using cater_ease_api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -36,6 +38,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddSingleton<MongoDbService>();
 builder.Services.AddSingleton<CloudinaryService>();
 builder.Services.AddSingleton<JwtService>();
+builder.Services.AddScoped<EmailService>();
 
 //jwt
 var jwtKey = Environment.GetEnvironmentVariable("JWT__KEY");
@@ -50,7 +53,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+            
+            RoleClaimType = ClaimTypes.Role,    
+            NameClaimType = "userId",            
         };
     });
 
