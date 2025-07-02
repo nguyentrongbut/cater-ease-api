@@ -62,6 +62,8 @@ public class BookingModel
     public string? Notes { get; set; }
 
     public string Status { get; set; } = "pending";
+    // Trạng thái thanh toán thực tế: unpaid, partial, paid
+    public string PaymentStatus { get; set; } = "unpaid";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

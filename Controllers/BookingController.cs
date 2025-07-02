@@ -36,9 +36,16 @@ public class BookingController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] string? status)
     {
-        var bookings = await _bookings.Find(_ => true)
+        var filter = Builders<BookingModel>.Filter.Empty;
+
+        if (!string.IsNullOrEmpty(status))
+        {
+            filter = Builders<BookingModel>.Filter.Eq(b => b.Status, status);
+        }
+
+        var bookings = await _bookings.Find(filter)
             .SortByDescending(b => b.CreatedAt)
             .ToListAsync();
 

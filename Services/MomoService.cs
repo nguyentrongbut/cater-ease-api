@@ -18,7 +18,6 @@ public class MomoService : IMomoService
 
     public async Task<MomoCreatePaymentResponseModel> CreatePaymentAsync(OrderInfoModel model)
     {
-        // Tạo OrderId duy nhất
         model.OrderId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
         model.OrderInfo = $"Khách hàng: {model.FullName}. Nội dung: {model.OrderInfo}";
 
@@ -30,7 +29,7 @@ public class MomoService : IMomoService
                       $"&orderInfo={model.OrderInfo}" +
                       $"&returnUrl={_options.ReturnUrl}" +
                       $"&notifyUrl={_options.NotifyUrl}" +
-                      $"&extraData=";
+                      $"&extraData={model.ExtraData}"; // ✅ BỔ SUNG dòng này
 
         var signature = ComputeHmacSha256(rawHash, _options.SecretKey);
 
@@ -44,7 +43,7 @@ public class MomoService : IMomoService
             amount = model.Amount,
             returnUrl = _options.ReturnUrl,
             notifyUrl = _options.NotifyUrl,
-            extraData = "",
+            extraData = model.ExtraData, 
             requestType = _options.RequestType,
             signature = signature,
             lang = "vi"
@@ -56,7 +55,6 @@ public class MomoService : IMomoService
         request.AddJsonBody(requestBody);
 
         var response = await client.ExecuteAsync(request);
-
         if (!response.IsSuccessful || string.IsNullOrEmpty(response.Content))
         {
             throw new Exception("Lỗi khi gọi MoMo API");
